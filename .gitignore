@@ -1,2 +1,3 @@
 virtualenv/
 token.txt
+.idea/

@@ -46,6 +46,8 @@ import os
 import discord
 from discord.ext import commands
 
+from lib.db import db
+
 logging.basicConfig(
     level=logging.INFO,
     format=' %(asctime)s - %(levelname)s - %(message)s')
@@ -60,6 +62,7 @@ class CreateBot(commands.Bot):
         intents.guilds = True
         super().__init__(
             command_prefix=prefix, intents=intents)
+        self.connection = db.DBConnection()
         self.add_cog(AntiGhostPing(self))
 
     async def on_ready(self):

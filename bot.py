@@ -1,7 +1,7 @@
 #! python3
 # bot.py
 
-'''
+"""
 Anti-GhostPing Discord bot
     - Listens for the on_message_delete event reference to be called
     - Checks deleted message for the following:
@@ -12,7 +12,7 @@ Anti-GhostPing Discord bot
 ===============================================================================
 Authorization Flow:
     - Public Bot
-Priveleged Gateway Intents:
+Privileged Gateway Intents:
     - Presence Intent
     - Server Members Intent
 Permission Integer: 125952
@@ -37,7 +37,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ===============================================================================
-'''
+"""
 
 import asyncio
 import logging
@@ -50,9 +50,10 @@ logging.basicConfig(
     level=logging.INFO,
     format=' %(asctime)s - %(levelname)s - %(message)s')
 
+
 class CreateBot(commands.Bot):
-    ''' Create commands.Bot object and add appropriate cogs
-'''
+    """ Create commands.Bot object and add appropriate cogs
+"""
     def __init__(self, prefix="@."):
         intents = discord.Intents.default()
         intents.members = True
@@ -62,24 +63,25 @@ class CreateBot(commands.Bot):
         self.add_cog(AntiGhostPing(self))
 
     async def on_ready(self):
-        ''' Notify logging of event reference
+        """ Notify logging of event reference
             Change bot status message
-'''
+"""
         logging.info("Ready: %s", self.user.name)
         await self.change_presence(
             activity=discord.Game("Ghost Ping Hunting | @."))
 
+
 class AntiGhostPing(commands.Cog):
-    ''' Listen for and handle ghost pings
-'''
+    """ Listen for and handle ghost pings
+"""
     def __init__(self, bot):
         self.bot = bot
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
-        ''' Notify logging of event reference
+        """ Notify logging of event reference
             Check for and handle host ping
-'''
+"""
         if message.author.bot:
             return
         flags = await self.parse(message)
@@ -87,34 +89,51 @@ class AntiGhostPing(commands.Cog):
             await self.detected(message, flags)
 
     async def parse(self, message):
-        ''' Parse message for all specified mentions
-'''
+        """ Parse message for all specified mentions
+"""
         flags = {}
         if message.raw_role_mentions:
+            role_mentions = [
+                discord.utils.get(message.guild.roles, id=i).name
+                for i in message.raw_role_mentions
+            ]
             flags.setdefault(
                 "Roles Mentioned",
-                 ", ".join(
-                    [discord.utils.get(message.guild.roles, id=i).name
-                    for i in message.raw_role_mentions]))
+                ", ".join(role_mentions)
+            )
         if message.raw_mentions:
+            raw_mentions = [
+                discord.utils.get(message.guild.members, id=i).name
+                for i in message.raw_mentions
+            ]
             flags.setdefault(
                 "Members Mentioned",
-                ", ".join(
-                    [discord.utils.get(message.guild.members, id=i).name
-                    for i in message.raw_mentions]))
+                ", ".join(raw_mentions))
         if message.mention_everyone:
             flags.setdefault(
                 "Other Groups Mentioned", "everyone")
         return flags
 
     async def detected(self, message, flags):
-        ''' Alert guild by sending message to specified channel
-'''
-        pass
+        """ Alert guild by sending message to specified channel
+"""
+        channel = message.channel
+        embed = discord.Embed(title="Ghost Ping Detected", color=0x0000ff)
+        fields = {
+            "Member": message.author.name, "Message": message.content,
+            "Channel": message.channel.name
+        }
+        fields = {**fields, **flags}
+        for field in fields:
+            embed.add_field(name=field, value=fields[field])
+        embed.set_footer(
+            text=f"Detect At: {message.created_at.strftime('%D %T')}")
+        await channel.send(embed=embed)
+
 
 def main():
-    ''' Create bot object and add to asyncio event loop to run forever
-'''
+    """ Create bot object and add to asyncio event loop to run forever
+"""
     token = os.environ.get("token", None)
     if token is None:
         with open("token.txt") as file:
@@ -124,6 +143,7 @@ def main():
     bot = CreateBot()
     loop.create_task(bot.start(token))
     loop.run_forever()
+
 
 if __name__ == '__main__':
     main()

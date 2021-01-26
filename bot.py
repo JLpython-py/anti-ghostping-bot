@@ -57,8 +57,8 @@ class Bot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = True
         intents.guilds = True
-        commands.Bot.__init__(
-            self, command_prefix=prefix, intents=intents)
+        super().commands.Bot(
+            command_prefix=prefix, intents=intents)
         self.add_cog(AntiGhostPing(self))
 
     async def on_ready(self):

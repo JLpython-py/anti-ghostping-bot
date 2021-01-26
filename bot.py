@@ -50,14 +50,14 @@ logging.basicConfig(
     level=logging.INFO,
     format=' %(asctime)s - %(levelname)s - %(message)s')
 
-class Bot(commands.Bot):
+class CreateBot(commands.Bot):
     ''' Create commands.Bot object and add appropriate cogs
 '''
     def __init__(self, prefix="@."):
         intents = discord.Intents.default()
         intents.members = True
         intents.guilds = True
-        super().commands.Bot(
+        super().__init__(
             command_prefix=prefix, intents=intents)
         self.add_cog(AntiGhostPing(self))
 
@@ -89,7 +89,23 @@ class AntiGhostPing(commands.Cog):
     async def parse(self, message):
         ''' Parse message for all specified mentions
 '''
-        pass
+        flags = {}
+        if message.raw_role_mentions:
+            flags.setdefault(
+                "Roles Mentioned",
+                 ", ".join(
+                    [discord.utils.get(message.guild.roles, id=i).name
+                    for i in message.raw_role_mentions]))
+        if message.raw_mentions:
+            flags.setdefault(
+                "Members Mentioned",
+                ", ".join(
+                    [discord.utils.get(message.guild.members, id=i).name
+                    for i in message.raw_mentions]))
+        if message.mention_everyone:
+            flags.setdefault(
+                "Other Groups Mentioned", "everyone")
+        return flags
 
     async def detected(self, message, flags):
         ''' Alert guild by sending message to specified channel
@@ -105,7 +121,7 @@ def main():
             token = file.read()
     assert token is not None
     loop = asyncio.get_event_loop()
-    bot = Bot()
+    bot = CreateBot()
     loop.create_task(bot.start(token))
     loop.run_forever()
 

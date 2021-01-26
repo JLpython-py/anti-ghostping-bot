@@ -1,0 +1,22 @@
+import asyncio
+import os
+
+from lib.bot import CreateBot
+
+
+def main():
+    """ Create bot object and add to asyncio event loop to run forever
+"""
+    token = os.environ.get("token", None)
+    if token is None:
+        with open("token.txt") as file:
+            token = file.read()
+    assert token is not None
+    loop = asyncio.get_event_loop()
+    bot = CreateBot()
+    loop.create_task(bot.start(token))
+    loop.run_forever()
+
+
+if __name__ == '__main__':
+    main()

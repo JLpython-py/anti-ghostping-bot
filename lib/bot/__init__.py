@@ -139,7 +139,7 @@ def main():
 """
     token = os.environ.get("token", None)
     if token is None:
-        with open("token.txt") as file:
+        with open("../../token.txt") as file:
             token = file.read()
     assert token is not None
     loop = asyncio.get_event_loop()

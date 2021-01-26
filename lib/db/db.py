@@ -1,12 +1,13 @@
 import os
 import sqlite3
 
+
 class DBConnection:
     """ Connect to data/db/db.sqlite
 """
-    def __init__(self, path):
+    def __init__(self):
         self.connection = sqlite3.connect(
-            os.path.join(path, 'db.sqlite')
+            os.path.join('data', 'db', 'db.sqlite')
         )
         self.cursor = self.connection.cursor()
 

@@ -15,7 +15,10 @@ def main():
     loop = asyncio.get_event_loop()
     bot = BotRoot()
     loop.create_task(bot.start(token))
-    loop.run_forever()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        bot.connection.close_connection()
 
 
 if __name__ == '__main__':

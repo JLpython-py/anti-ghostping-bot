@@ -39,7 +39,7 @@ PREFERENCES_QUERY = """CREATE TABLE IF NOT EXISTS preferences (
     everyone integer DEFAULT 1,
     roles integer DEFAULT 1,
     members integer DEFAULT 0,
-    ChannelID integer
+    channel integer DEFAULT 0
 );"""
 
 CONNECTION = db.DBConnection()

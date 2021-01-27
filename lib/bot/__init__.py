@@ -41,6 +41,7 @@ SOFTWARE.
 
 import json
 import logging
+import os
 
 import discord
 from discord.ext import commands
@@ -78,31 +79,105 @@ class Configuration(commands.Cog):
     """ Allow guild owners to configure bot preferences
 """
     def __init__(self, bot):
+        self.directory = os.path.join("data", "BotConfiguration")
         self.bot = bot
-        with open("data/botconfiguration_fields.txt") as file:
-            self.field_defaults = json.load(file)
+        with open(os.path.join(
+                self.directory, "prompt.txt"
+        )) as file:
+            self.prompt_fields = json.load(file)
+        with open(os.path.join(
+                self.directory, "configure.txt"
+        )) as file:
+            self.configure_fields = json.load(file)
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
+        """ Send configuration prompt when the bot is added to a guild
+"""
         await self.prompt_configuration(guild)
 
     @commands.command(
-        name="configure", pass_context=True, aliases=["c", "config"])
-    async def configure(self):
-        pass
+        name="configure", pass_context=True, aliases=["config", "c"])
+    async def configure(self, ctx):
+        """ Configure bot preference settings
+"""
+        def check(message):
+            return message.author.id == ctx.author.id
+
+        # Display current bot preference settings
+        # List the possible settings guild owner can configure
+        embed = discord.Embed(
+            title="Bot Preference Configuration",
+            color=0xff0000
+        )
+        for field in self.configure_fields:
+            embed.add_field(
+                name=field,
+                value=self.configure_fields[field])
+        embed.set_footer(text="Type 'quit' to quit")
+        config_message = await ctx.channel.send(embed=embed)
+        while True:
+            option = await self.bot.wait_for(
+                'message',
+                timeout=60.0,
+                check=check(message)
+            ).lower()
+            config_funcs = {
+                "everyone": self.c_everyone, "roles": self.c_roles,
+                "members": self.c_members, "channel": self.c_channel
+            }
+            if option == "quit":
+                break
+            elif option in config_funcs:
+                await config_funcs[option](ctx)
+        await config_message.delete()
 
     @commands.command(
-        name="preferences", pass_context=True, aliases=["p, prefs"])
-    async def preferences(self):
+        name="preferences", pass_context=True, aliases=["prefs", "p"])
+    async def preferences(self, ctx):
+        """ View bot preference settings
+"""
+        # Get data from db preferences table
+        select_preferences_table = """
+        SELECT *
+        FROM preferences
+        WHERE preferences.GuildID=?"""
+        prefs = self.bot.connection.execute_read_query(
+            select_preferences_table, ctx.guild.id
+        )
+        prefs = [p for p in prefs if p is not None]
+        columns = [d[0] for d in self.bot.connection.cursor.description]
+        preferences = dict(zip(columns, prefs))
+        # Send preferences data to channel
+        embed = discord.Embed(
+            title=f"Preferences for {ctx.guild.name}",
+            color=0xff0000
+        )
+        for pref in preferences:
+            embed.add_field(name=pref, value=preferences[pref])
+        await ctx.channel.send(embed=embed)
+
+    async def c_everyone(self, ctx):
+        pass
+
+    async def c_roles(self, ctx):
+        pass
+
+    async def c_members(self, ctx):
+        pass
+
+    async def c_channel(self, ctx):
         pass
 
     async def prompt_configuration(self, guild):
+        """ Send embed in direct message channel to guild owner
+"""
         direct_message = await guild.owner.create_dm()
         embed = discord.Embed(
             title="Thank you for choosing the Anti-GhostPing bot!",
             color=0xff0000
         )
-        fields = self.field_defaults
+        fields = self.prompt_fields
         fields["Added to Guild"] = fields["Added to Guild"].format(
             guild.name, guild.id
         )
@@ -133,7 +208,7 @@ class AntiGhostPing(commands.Cog):
 """
         # Get guild preferences from db.sqlite
         prefs = self.bot.connection.execute_read_query(
-            "SELECT * from preferences"
+            "SELECT * FROM preferences"
         )
         columns = [d[0] for d in self.bot.connection.cursor.description]
         list_preferences = [dict(zip(columns, r)) for r in prefs]

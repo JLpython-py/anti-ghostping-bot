@@ -117,11 +117,12 @@ class Configuration(commands.Cog):
         embed.set_footer(text="Type 'quit' to quit")
         config_message = await ctx.channel.send(embed=embed)
         while True:
-            option = await self.bot.wait_for(
+            option = (await self.bot.wait_for(
                 'message',
                 timeout=60.0,
-                check=check(message)
-            ).lower()
+                check=check
+            )).content.lower()
+            option = option
             config_funcs = {
                 "everyone": self.c_everyone, "roles": self.c_roles,
                 "members": self.c_members, "channel": self.c_channel

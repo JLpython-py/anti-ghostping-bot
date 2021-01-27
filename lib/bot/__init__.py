@@ -100,35 +100,58 @@ class AntiGhostPing(commands.Cog):
         )
         columns = [d[0] for d in self.bot.connection.cursor.description]
         list_preferences = [dict(zip(columns, r)) for r in prefs]
-        preferences = {d["GuildID"]: d for d in list_preferences}
-        # Parse message from raw mentions and flags if preferences specify to
+        preferences = {d["GuildID"]: d for d in list_preferences}.get(
+            message.guild.id, None
+        )
+        # Get ping detection preferences from guild preferences
+        if preferences is None:
+            preferences = {
+                "roles": True, "members": False, "everyone": True
+            }
+        # Parse message for raw mentions and flags for specified preferences
         flags = {}
-        if preferences["detectROLES"] and message.raw_role_mentions:
+        # Check for role mentions
+        if preferences["roles"] and message.raw_role_mentions:
             role_mentions = [
                 discord.utils.get(message.guild.roles, id=i).name
                 for i in message.raw_role_mentions
             ]
-            flags.setdefault(
-                "Roles Mentioned",
-                ", ".join(role_mentions)
-            )
-        if preferences["detectMEMBERS"] and message.raw_mentions:
+            flags.setdefault("Roles Mentioned", ", ".join(role_mentions))
+        # Check for member mentions
+        if preferences["members"] and message.raw_mentions:
             raw_mentions = [
                 discord.utils.get(message.guild.members, id=i).name
                 for i in message.raw_mentions
             ]
-            flags.setdefault(
-                "Members Mentioned",
-                ", ".join(raw_mentions))
-        if preferences["detectEVERYONE"] and message.mention_everyone:
-            flags.setdefault(
-                "Other Groups Mentioned", "everyone")
+            flags.setdefault("Members Mentioned", ", ".join(raw_mentions))
+        # Check for everyone mentions
+        if preferences["everyone"] and message.mention_everyone:
+            flags.setdefault("Other Groups Mentioned", "everyone")
         return flags
 
     async def detected(self, message, flags):
         """ Alert guild by sending message to specified channel
 """
-        channel = message.channel
+        # Get guild preferences from db.sqlite
+        prefs = self.bot.connection.execute_read_query(
+            "SELECT * from preferences"
+        )
+        columns = [d[0] for d in self.bot.connection.cursor.description]
+        list_preferences = [dict(zip(columns, r)) for r in prefs]
+        preferences = {d["GuildID"]: d for d in list_preferences}.get(
+            message.guild.id, None
+        )
+        # Get notification channel preferences from guild preferences
+        if preferences is None:
+            channel = message.channel
+        else:
+            channel = discord.utils.get(
+                message.guild.channels,
+                id=preferences["ChannelID"]
+            )
+            if channel is None:
+                channel = message.channel
+        # Send notifying embed to specified channel
         embed = discord.Embed(title="Ghost Ping Detected", color=0x0000ff)
         fields = {
             "Member": message.author.name, "Message": message.content,

@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from lib.bot import CreateBot
+from lib.bot import BotRoot
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
             token = file.read()
     assert token is not None
     loop = asyncio.get_event_loop()
-    bot = CreateBot()
+    bot = BotRoot()
     loop.create_task(bot.start(token))
     loop.run_forever()
 

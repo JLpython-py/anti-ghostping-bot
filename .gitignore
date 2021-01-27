@@ -2,4 +2,4 @@ virtualenv/
 token.txt
 .idea/
 **/__pycache__
-data/db/db.sqlite
+db.sqlite

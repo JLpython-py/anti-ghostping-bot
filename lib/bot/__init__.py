@@ -39,9 +39,8 @@ SOFTWARE.
 ===============================================================================
 """
 
-import asyncio
+import json
 import logging
-import os
 
 import discord
 from discord.ext import commands
@@ -53,7 +52,7 @@ logging.basicConfig(
     format=' %(asctime)s - %(levelname)s - %(message)s')
 
 
-class CreateBot(commands.Bot):
+class BotRoot(commands.Bot):
     """ Create commands.Bot object and add appropriate cogs
 """
     def __init__(self, prefix="@."):
@@ -64,6 +63,7 @@ class CreateBot(commands.Bot):
             command_prefix=prefix, intents=intents)
         self.connection = db.DBConnection()
         self.add_cog(AntiGhostPing(self))
+        self.add_cog(Configuration(self))
 
     async def on_ready(self):
         """ Notify logging of event reference
@@ -72,6 +72,43 @@ class CreateBot(commands.Bot):
         logging.info("Ready: %s", self.user.name)
         await self.change_presence(
             activity=discord.Game("Ghost Ping Hunting | @."))
+
+
+class Configuration(commands.Cog):
+    """ Allow guild owners to configure bot preferences
+"""
+    def __init__(self, bot):
+        self.bot = bot
+        with open("data/botconfiguration_fields.txt") as file:
+            self.field_defaults = json.load(file)
+
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild):
+        await self.prompt_configuration(guild)
+
+    @commands.command(
+        name="configure", pass_context=True, aliases=["c", "config"])
+    async def configure(self):
+        pass
+
+    @commands.command(
+        name="preferences", pass_context=True, aliases=["p, prefs"])
+    async def preferences(self):
+        pass
+
+    async def prompt_configuration(self, guild):
+        direct_message = await guild.owner.create_dm()
+        embed = discord.Embed(
+            title="Thank you for choosing the Anti-GhostPing bot!",
+            color=0xff0000
+        )
+        fields = self.field_defaults
+        fields["Added to Guild"] = fields["Added to Guild"].format(
+            guild.name, guild.id
+        )
+        for field in fields:
+            embed.add_field(name=field, value=fields[field])
+        await direct_message.send(embed=embed)
 
 
 class AntiGhostPing(commands.Cog):
@@ -163,21 +200,3 @@ class AntiGhostPing(commands.Cog):
         embed.set_footer(
             text=f"Detect At: {message.created_at.strftime('%D %T')}")
         await channel.send(embed=embed)
-
-
-def main():
-    """ Create bot object and add to asyncio event loop to run forever
-"""
-    token = os.environ.get("token", None)
-    if token is None:
-        with open("../../token.txt") as file:
-            token = file.read()
-    assert token is not None
-    loop = asyncio.get_event_loop()
-    bot = CreateBot()
-    loop.create_task(bot.start(token))
-    loop.run_forever()
-
-
-if __name__ == '__main__':
-    main()

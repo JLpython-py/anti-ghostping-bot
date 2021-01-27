@@ -16,8 +16,14 @@ class DBConnection:
 """
         self.connection.close()
 
-    def execute_query(self, query):
+    def execute_write_query(self, query):
         """ Pass the given query to the cursor and commit the connection
 """
         self.cursor.execute(query)
         self.connection.commit()
+
+    def execute_read_query(self, query):
+        """ Pass the given query to the cursor to read the database
+"""
+        self.cursor.execute(query)
+        return self.cursor.fetchall()

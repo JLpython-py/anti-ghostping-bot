@@ -5,11 +5,11 @@ from lib.bot import CreateBot
 
 
 def main():
-    """ Create bot object and add to asyncio event loop to run forever
+    """ Create bot object and add to Async I/O event loop to run forever
 """
     token = os.environ.get("token", None)
     if token is None:
-        with open("token.txt") as file:
+        with open(os.path.join("lib", "bot", "token.txt")) as file:
             token = file.read()
     assert token is not None
     loop = asyncio.get_event_loop()

@@ -1,7 +1,7 @@
 from . import db
 
 
-GUILD_QUERY = """CREATE TABLE IF NOT EXISTS guild (
+GUILD_QUERY = """CREATE TABLE IF NOT EXISTS guilds (
     GuildID integer PRIMARY KEY,
     Prefix text DEFAULT "@."
 );"""
@@ -15,5 +15,5 @@ PREFERENCES_QUERY = """CREATE TABLE IF NOT EXISTS preferences (
 );"""
 
 CONNECTION = db.DBConnection()
-CONNECTION.execute_query(GUILD_QUERY)
-CONNECTION.execute_query(PREFERENCES_QUERY)
+CONNECTION.execute_write_query(GUILD_QUERY)
+CONNECTION.execute_write_query(PREFERENCES_QUERY)

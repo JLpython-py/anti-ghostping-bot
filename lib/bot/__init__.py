@@ -94,8 +94,16 @@ class AntiGhostPing(commands.Cog):
     async def parse(self, message):
         """ Parse message for all specified mentions
 """
+        # Get guild preferences from db.sqlite
+        prefs = self.bot.connection.execute_read_query(
+            "SELECT * from preferences"
+        )
+        columns = [d[0] for d in self.bot.connection.cursor.description]
+        list_preferences = [dict(zip(columns, r)) for r in prefs]
+        preferences = {d["GuildID"]: d for d in list_preferences}
+        # Parse message from raw mentions and flags if preferences specify to
         flags = {}
-        if message.raw_role_mentions:
+        if preferences["detectROLES"] and message.raw_role_mentions:
             role_mentions = [
                 discord.utils.get(message.guild.roles, id=i).name
                 for i in message.raw_role_mentions
@@ -104,7 +112,7 @@ class AntiGhostPing(commands.Cog):
                 "Roles Mentioned",
                 ", ".join(role_mentions)
             )
-        if message.raw_mentions:
+        if preferences["detectMEMBERS"] and message.raw_mentions:
             raw_mentions = [
                 discord.utils.get(message.guild.members, id=i).name
                 for i in message.raw_mentions
@@ -112,7 +120,7 @@ class AntiGhostPing(commands.Cog):
             flags.setdefault(
                 "Members Mentioned",
                 ", ".join(raw_mentions))
-        if message.mention_everyone:
+        if preferences["detectEVERYONE"] and message.mention_everyone:
             flags.setdefault(
                 "Other Groups Mentioned", "everyone")
         return flags

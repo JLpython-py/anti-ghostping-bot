@@ -29,11 +29,6 @@ SOFTWARE.
 from . import db
 
 
-GUILD_QUERY = """CREATE TABLE IF NOT EXISTS guilds (
-    GuildID integer PRIMARY KEY,
-    prefix text DEFAULT "@."
-);"""
-
 PREFERENCES_QUERY = """CREATE TABLE IF NOT EXISTS preferences (
     GuildID integer PRIMARY KEY,
     everyone integer DEFAULT 1,
@@ -43,5 +38,4 @@ PREFERENCES_QUERY = """CREATE TABLE IF NOT EXISTS preferences (
 );"""
 
 CONNECTION = db.DBConnection()
-CONNECTION.execute_write_query(GUILD_QUERY)
 CONNECTION.execute_write_query(PREFERENCES_QUERY)

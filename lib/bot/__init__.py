@@ -95,15 +95,6 @@ class Configuration(commands.Cog):
     async def on_guild_join(self, guild):
         """ Send configuration prompt when the bot is added to a guild
 """
-        # Insert default values into guilds table
-        insert_new_guild = """
-                INSERT INTO guilds (GuildID, prefix)
-                VALUES (?, '@.')
-                """
-        self.bot.connection.execute_write_query(
-            insert_new_guild, guild.id
-        )
-
         # Insert default values
         insert_new_guild_preferences = """
                 INSERT INTO preferences (GuildID)
@@ -199,11 +190,15 @@ class Configuration(commands.Cog):
             if setting in ["everyone", "roles", "members"]:
                 await self.process_mention_config(ctx, setting)
                 await msg.delete()
-            if setting == "channel":
+            elif setting == "channel":
                 await self.process_channel_config(ctx)
                 await msg.delete()
+            elif setting == "defaults":
+                await self.process_default_config(ctx)
+                await msg.delete()
+                break
             else:
-                msg.delete()
+                await msg.delete()
                 break
         await message.delete()
 
@@ -315,6 +310,40 @@ class Configuration(commands.Cog):
         )
         await msg.delete()
 
+    async def process_default_config(self, ctx):
+        """ Confirm that user desires to revert bot preferences to defaults
+"""
+        def check(mess):
+            return mess.author.id == ctx.author.id
+
+        desc = "Are you sure you want to revert bot preferences to defaults?"
+        embed = discord.Embed(
+            title=":x: Set Guild Preferences to Default :x:",
+            description=desc,
+            footer_text="(y/n)",
+            color=0xff0000
+        )
+        message = await ctx.channel.send(embed=embed)
+        try:
+            msg = await self.bot.wait_for(
+                "message",
+                timeout=30.0,
+                check=check
+            )
+        except asyncio.TimeoutError:
+            await message.delete()
+            return
+        if msg.content.lower().startswith('y'):
+            self.default_preferences(ctx)
+            embed = discord.Embed(
+                title="Bot Preferences Reverted to Default",
+                color=0xff0000
+            )
+            await message.edit(
+                embed=embed
+            )
+        await msg.delete()
+
     def configure_mention(self, ctx, setting, set_to):
         """ Update database to match new guild mention preferences
 """
@@ -353,6 +382,23 @@ class Configuration(commands.Cog):
         """
         self.bot.connection.execute_write_query(
             new_setting_query, channel.id, ctx.guild.id
+        )
+
+    def default_preferences(self, ctx):
+        """ Set guild bot preferences to default settings
+"""
+        delete_guild_query = """
+        DELETE FROM preferences
+        """
+        self.bot.connection.execute_write_query(
+            delete_guild_query
+        )
+        create_guild_query = """
+        INSERT INTO preferences (GuildID)
+        VALUES (?)
+        """
+        self.bot.connection.execute_write_query(
+            create_guild_query, ctx.guild.id
         )
 
     async def initial_message(self, guild):

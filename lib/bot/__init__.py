@@ -39,6 +39,7 @@ SOFTWARE.
 ===============================================================================
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -94,44 +95,24 @@ class Configuration(commands.Cog):
     async def on_guild_join(self, guild):
         """ Send configuration prompt when the bot is added to a guild
 """
-        await self.prompt_configuration(guild)
-
-    @commands.command(
-        name="configure", pass_context=True, aliases=["config", "c"])
-    async def configure(self, ctx):
-        """ Configure bot preference settings
-"""
-        def check(message):
-            return message.author.id == ctx.author.id
-
-        # Display current bot preference settings
-        # List the possible settings guild owner can configure
-        embed = discord.Embed(
-            title="Bot Preference Configuration",
-            color=0xff0000
+        # Insert default values into guilds table
+        insert_new_guild = """
+                INSERT INTO guilds (GuildID, prefix)
+                VALUES (?, '@.')
+                """
+        self.bot.connection.execute_write_query(
+            insert_new_guild, guild.id
         )
-        for field in self.configure_fields:
-            embed.add_field(
-                name=field,
-                value=self.configure_fields[field])
-        embed.set_footer(text="Type 'quit' to quit")
-        config_message = await ctx.channel.send(embed=embed)
-        while True:
-            option = (await self.bot.wait_for(
-                'message',
-                timeout=60.0,
-                check=check
-            )).content.lower()
-            option = option
-            config_funcs = {
-                "everyone": self.c_everyone, "roles": self.c_roles,
-                "members": self.c_members, "channel": self.c_channel
-            }
-            if option == "quit":
-                break
-            elif option in config_funcs:
-                await config_funcs[option](ctx)
-        await config_message.delete()
+
+        # Insert default values
+        insert_new_guild_preferences = """
+                INSERT INTO preferences (GuildID)
+                VALUES (?)
+                """
+        self.bot.connection.execute_write_query(
+            insert_new_guild_preferences, guild.id
+        )
+        await self.initial_message(guild)
 
     @commands.command(
         name="preferences", pass_context=True, aliases=["prefs", "p"])
@@ -142,11 +123,10 @@ class Configuration(commands.Cog):
         select_preferences_table = """
         SELECT *
         FROM preferences
-        WHERE preferences.GuildID=?"""
+        WHERE GuildID=?"""
         prefs = self.bot.connection.execute_read_query(
             select_preferences_table, ctx.guild.id
-        )
-        prefs = [p for p in prefs if p is not None]
+        )[0]
         columns = [d[0] for d in self.bot.connection.cursor.description]
         preferences = dict(zip(columns, prefs))
         # Send preferences data to channel
@@ -155,22 +135,227 @@ class Configuration(commands.Cog):
             color=0xff0000
         )
         for pref in preferences:
-            embed.add_field(name=pref, value=preferences[pref])
+            if pref in ["everyone", "members", "roles"]:
+                sett = "ON" if preferences[pref] == 1 else "OFF"
+            elif pref == "channel":
+                sett = discord.utils.get(
+                    ctx.guild.channels, id=preferences[pref]
+                )
+            else:
+                sett = preferences[pref]
+            embed.add_field(name=pref, value=sett)
         await ctx.channel.send(embed=embed)
 
-    async def c_everyone(self, ctx):
-        pass
+    @commands.command(
+        name="configure", pass_context=True, aliases=["config", "c"])
+    async def configure(self, ctx, setting="", set_to=""):
+        """ Configure bot preference settings
+"""
+        if (
+                setting.lower() in ["everyone", "members", "roles"]
+                and set_to.upper() in ["ON", "OFF"]
+        ):
+            self.configure_mention(ctx, setting.lower(), set_to.upper())
+            await ctx.send(
+                f"`{setting.lower()}` configured to {set_to.upper()}"
+            )
+        elif (
+                setting.lower() == "channel"
+                and ctx.message.channel_mentions
+        ):
+            self.configure_channel(ctx, ctx.message.channel_mentions[0])
+            await ctx.send(
+                f"`channel` configured to {set_to.upper()}"
+            )
+        else:
+            await self.configuration_prompt(ctx)
 
-    async def c_roles(self, ctx):
-        pass
+    async def configuration_prompt(self, ctx):
+        """ Send prompt with instructions for configuring bot preferences
+"""
+        def check(mess):
+            return mess.author.id == ctx.author.id
 
-    async def c_members(self, ctx):
-        pass
+        # List the possible settings guild owner can configure
+        embed = discord.Embed(
+            title="Bot Preference Configuration",
+            color=0xff0000
+        )
+        for field in self.configure_fields:
+            embed.add_field(
+                name=field,
+                value=self.configure_fields[field])
+        embed.set_footer(text="Type 'quit' to quit")
+        message = await ctx.channel.send(embed=embed)
+        while True:
+            try:
+                msg = await self.bot.wait_for(
+                    "message",
+                    timeout=30.0,
+                    check=check)
+            except asyncio.TimeoutError:
+                break
+            setting = msg.content.lower()
+            if setting in ["everyone", "roles", "members"]:
+                await self.process_mention_config(ctx, setting)
+                await msg.delete()
+            if setting == "channel":
+                await self.process_channel_config(ctx)
+                await msg.delete()
+            else:
+                msg.delete()
+                break
+        await message.delete()
 
-    async def c_channel(self, ctx):
-        pass
+    async def process_mention_config(self, ctx, setting):
+        """ Send specific prompt for user to manage mention preferences
+"""
+        messages = {"ON": True, "OFF": False}
 
-    async def prompt_configuration(self, guild):
+        def check(mess):
+            return (
+                (mess.author.id == ctx.guild.owner.id)
+                and (mess.content.upper() in messages)
+            )
+
+        # Get current preference setting
+        current_settings_query = """
+        SELECt *
+        FROM preferences
+        WHERE GuildID=?
+        """
+        prefs = self.bot.connection.execute_read_query(
+            current_settings_query, ctx.guild.id
+        )[0]
+        columns = [d[0] for d in self.bot.connection.cursor.description]
+        current = "ON" if dict(zip(columns, prefs))[setting] else "OFF"
+        # Send an embed with reactions for guild owner to use
+        embed = discord.Embed(
+            gtitle=f"Confiure `{setting}`",
+            color=0xff0000
+        )
+        fields = {
+            "Current Configuration": f"`everyone`={current}",
+            "Configure Setting": "ON/OFF"
+        }
+        for field in fields:
+            embed.add_field(name=field, value=fields[field])
+        message = await ctx.channel.send(embed=embed)
+        # Use guild owner input to configure setting in database
+        try:
+            msg = await self.bot.wait_for(
+                "message",
+                timeout=30.0,
+                check=check)
+        except asyncio.TimeoutError:
+            await message.delete()
+            return
+        set_to = "ON" if messages[msg.content.upper()] else "OFF"
+        self.configure_mention(ctx, setting, set_to)
+        await message.edit(
+            content=f"`{setting}` configured to {set_to}",
+            embed=None
+        )
+        await msg.delete()
+
+    async def process_channel_config(self, ctx):
+        """ Send specific prompt for user to manage channel preference
+"""
+        def check(mess):
+            return (
+                (mess.author.id == ctx.guild.owner.id)
+                and (len(mess.channel_mentions) == 1)
+            )
+
+        # Get current preference setting
+        current_settings = """
+        SELECT channel
+        FROM preferences
+        WHERE GuildID=?
+        """
+        prefs = self.bot.connection.execute_read_query(
+            current_settings, ctx.guild.id
+        )[0]
+        columns = [d[0] for d in self.bot.connection.cursor.description]
+        logging.info(dict(zip(columns, prefs)))
+        current = dict(zip(columns, prefs))["channel"]
+        try:
+            channel = discord.utils.get(
+                ctx.guild.channels, id=current
+            ).name
+        except AttributeError:
+            channel = "NOT SET"
+        # Send an embed with configuratio instructions
+        embed = discord.Embed(
+            title="Configure `channel`",
+            color=0xff0000
+        )
+        fields = {
+            "Current Configuration": f"`channel`={channel}",
+            "Configure Setting": "Mention a channel"
+        }
+        for field in fields:
+            embed.add_field(name=field, value=fields[field])
+        message = await ctx.channel.send(embed=embed)
+        # User guild owner input to configure setting in database
+        try:
+            msg = await self.bot.wait_for(
+                "message",
+                timeout=30.0,
+                check=check
+            )
+        except asyncio.TimeoutError:
+            await message.delete()
+            return
+        set_to = msg.channel_mentions[0]
+        self.configure_channel(ctx, set_to)
+        await message.edit(
+            content=f"`channel` configured to {set_to}",
+            embed=None
+        )
+        await msg.delete()
+
+    def configure_mention(self, ctx, setting, set_to):
+        """ Update database to match new guild mention preferences
+"""
+        if setting == "everyone":
+            new_setting_query = """
+            UPDATE preferences
+            SET everyone=?
+            WHERE GuildID=?
+            """
+        elif setting == "roles":
+            new_setting_query = """
+            UPDATE preferences
+            SET roles=?
+            WHERE GuildID=?
+            """
+        elif setting == "members":
+            new_setting_query = """
+            UPDATE preferences
+            SET members=?
+            WHERE GuildID=?
+            """
+        else:
+            return
+        set_to = 1 if set_to == "ON" else 0
+        self.bot.connection.execute_write_query(
+            new_setting_query, set_to, ctx.guild.id
+        )
+
+    def configure_channel(self, ctx, channel):
+        """ Update database to match new guild channel preference
+"""
+        new_setting_query = """
+        UPDATE preferences
+        SET channel=?
+        WHERE GuildID=?
+        """
+        self.bot.connection.execute_write_query(
+            new_setting_query, channel.id, ctx.guild.id
+        )
+
+    async def initial_message(self, guild):
         """ Send embed in direct message channel to guild owner
 """
         direct_message = await guild.owner.create_dm()
@@ -208,19 +393,19 @@ class AntiGhostPing(commands.Cog):
         """ Parse message for all specified mentions
 """
         # Get guild preferences from db.sqlite
+        select_preferences_table = """
+        SELECT 
+            roles,
+            members,
+            everyone
+        FROM 
+            preferences
+        WHERE GuildID=?"""
         prefs = self.bot.connection.execute_read_query(
-            "SELECT * FROM preferences"
-        )
-        columns = [d[0] for d in self.bot.connection.cursor.description]
-        list_preferences = [dict(zip(columns, r)) for r in prefs]
-        preferences = {d["GuildID"]: d for d in list_preferences}.get(
-            message.guild.id, None
-        )
-        # Get ping detection preferences from guild preferences
-        if preferences is None:
-            preferences = {
-                "roles": True, "members": False, "everyone": True
-            }
+            select_preferences_table, message.guild.id
+        )[0]
+        headers = [d[0] for d in self.bot.connection.cursor.description]
+        preferences = dict(zip(headers, prefs))
         # Parse message for raw mentions and flags for specified preferences
         flags = {}
         # Check for role mentions
@@ -246,26 +431,30 @@ class AntiGhostPing(commands.Cog):
         """ Alert guild by sending message to specified channel
 """
         # Get guild preferences from db.sqlite
+        select_preferences_table = """
+        SELECT channel
+        FROM preferences
+        WHERE GuildID=?"""
         prefs = self.bot.connection.execute_read_query(
-            "SELECT * from preferences"
-        )
+            select_preferences_table, message.guild.id
+        )[0]
         columns = [d[0] for d in self.bot.connection.cursor.description]
-        list_preferences = [dict(zip(columns, r)) for r in prefs]
-        preferences = {d["GuildID"]: d for d in list_preferences}.get(
-            message.guild.id, None
-        )
+        preferences = dict(zip(columns, prefs))
         # Get notification channel preferences from guild preferences
         if preferences is None:
             channel = message.channel
         else:
             channel = discord.utils.get(
                 message.guild.channels,
-                id=preferences["ChannelID"]
+                id=preferences["channel"]
             )
             if channel is None:
                 channel = message.channel
         # Send notifying embed to specified channel
-        embed = discord.Embed(title="Ghost Ping Detected", color=0x0000ff)
+        embed = discord.Embed(
+            title="Ghost Ping Detected :no_entry_sign: :ghost:",
+            color=0x0000ff
+        )
         fields = {
             "Member": message.author.name, "Message": message.content,
             "Channel": message.channel.name

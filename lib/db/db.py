@@ -49,16 +49,17 @@ class DBConnection:
 """
         mode = mode.lower()
         if mode not in ["r", "rr", "w"]:
-            return
-        if "w" in mode:
+            values = []
+        elif "w" in mode:
             self.cursor.execute(query, tuple(args))
             self.connection.commit()
         elif "r" in mode:
             self.cursor.execute(query, tuple(args))
             if mode == "rr":
-                return [
+                values = [
                     [d[0] for d in self.cursor.description],
                     self.cursor.fetchall()
                 ]
             else:
-                return self.cursor.fetchall()
+                values = [self.cursor.fetchall()]
+        return values

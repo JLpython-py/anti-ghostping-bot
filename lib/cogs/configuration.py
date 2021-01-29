@@ -377,3 +377,9 @@ class Configuration(commands.Cog):
         for field in fields:
             embed.add_field(name=field, value=fields[field])
         await direct_message.send(embed=embed)
+
+
+def setup(bot):
+    """ Allow lib.bot.__init__.py to add Configuration cog as an extension
+"""
+    bot.add_cog(Configuration(bot))

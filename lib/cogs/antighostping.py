@@ -128,3 +128,9 @@ class AntiGhostPing(commands.Cog):
         embed.set_footer(
             text=f"Detect At: {message.created_at.strftime('%D %T')}")
         await channel.send(embed=embed)
+
+
+def setup(bot):
+    """ Allow lib.bot.__init__.py to add AntiGhostPing cog as an extension
+"""
+    bot.add_cog(AntiGhostPing(bot))

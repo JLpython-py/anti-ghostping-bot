@@ -40,7 +40,7 @@ class TestRunBot(unittest.TestCase):
         self.connection = db.DBConnection()
 
     def tearDown(self):
-        self.connection.execute_write_query("DELETE FROM preferences")
+        self.connection.execute_query("DELETE FROM preferences", "w")
         self.connection.close_connection()
 
     def test_run_bot(self):

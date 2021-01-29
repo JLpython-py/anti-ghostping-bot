@@ -80,7 +80,7 @@ class Configuration(commands.Cog):
     """ Allow guild owners to configure bot preferences
 """
     def __init__(self, bot):
-        self.directory = os.path.join("data", "BotConfiguration")
+        self.directory = os.path.join("data", "Configuration")
         self.bot = bot
         with open(os.path.join(
                 self.directory, "prompt.txt"
@@ -97,11 +97,12 @@ class Configuration(commands.Cog):
 """
         # Insert default values
         insert_new_guild_preferences = """
-                INSERT INTO preferences (GuildID)
-                VALUES (?)
-                """
-        self.bot.connection.execute_write_query(
-            insert_new_guild_preferences, guild.id
+        INSERT INTO preferences (GuildID)
+        VALUES (?)
+        """
+        self.bot.connection.execute_query(
+            insert_new_guild_preferences, "w",
+            guild.id
         )
         await self.initial_message(guild)
 
@@ -115,10 +116,10 @@ class Configuration(commands.Cog):
         SELECT *
         FROM preferences
         WHERE GuildID=?"""
-        prefs = self.bot.connection.execute_read_query(
-            select_preferences_table, ctx.guild.id
-        )[0]
-        columns = [d[0] for d in self.bot.connection.cursor.description]
+        columns, prefs = self.bot.connection.execute_query(
+            select_preferences_table, "rr",
+            ctx.guild.id
+        )
         preferences = dict(zip(columns, prefs))
         # Send preferences data to channel
         embed = discord.Embed(
@@ -219,10 +220,10 @@ class Configuration(commands.Cog):
         FROM preferences
         WHERE GuildID=?
         """
-        prefs = self.bot.connection.execute_read_query(
-            current_settings_query, ctx.guild.id
+        columns, prefs = self.bot.connection.execute_query(
+            current_settings_query, "rr",
+            ctx.guild.id
         )[0]
-        columns = [d[0] for d in self.bot.connection.cursor.description]
         current = "ON" if dict(zip(columns, prefs))[setting] else "OFF"
         # Send an embed with reactions for guild owner to use
         embed = discord.Embed(
@@ -268,10 +269,10 @@ class Configuration(commands.Cog):
         FROM preferences
         WHERE GuildID=?
         """
-        prefs = self.bot.connection.execute_read_query(
-            current_settings, ctx.guild.id
+        columns, prefs = self.bot.connection.execute_query(
+            current_settings, "rr",
+            ctx.guild.id
         )[0]
-        columns = [d[0] for d in self.bot.connection.cursor.description]
         logging.info(dict(zip(columns, prefs)))
         current = dict(zip(columns, prefs))["channel"]
         try:
@@ -368,8 +369,9 @@ class Configuration(commands.Cog):
         else:
             return
         set_to = 1 if set_to == "ON" else 0
-        self.bot.connection.execute_write_query(
-            new_setting_query, set_to, ctx.guild.id
+        self.bot.connection.execute_query(
+            new_setting_query, "w",
+            set_to, ctx.guild.id
         )
 
     def configure_channel(self, ctx, channel):
@@ -380,8 +382,9 @@ class Configuration(commands.Cog):
         SET channel=?
         WHERE GuildID=?
         """
-        self.bot.connection.execute_write_query(
-            new_setting_query, channel.id, ctx.guild.id
+        self.bot.connection.execute_query(
+            new_setting_query, "w",
+            channel.id, ctx.guild.id
         )
 
     def default_preferences(self, ctx):
@@ -390,15 +393,16 @@ class Configuration(commands.Cog):
         delete_guild_query = """
         DELETE FROM preferences
         """
-        self.bot.connection.execute_write_query(
-            delete_guild_query
+        self.bot.connection.execute_query(
+            delete_guild_query, "w"
         )
         create_guild_query = """
         INSERT INTO preferences (GuildID)
         VALUES (?)
         """
-        self.bot.connection.execute_write_query(
-            create_guild_query, ctx.guild.id
+        self.bot.connection.execute_query(
+            create_guild_query, "w",
+            ctx.guild.id
         )
 
     async def initial_message(self, guild):
@@ -447,11 +451,11 @@ class AntiGhostPing(commands.Cog):
         FROM 
             preferences
         WHERE GuildID=?"""
-        prefs = self.bot.connection.execute_read_query(
-            select_preferences_table, message.guild.id
+        columns, prefs = self.bot.connection.execute_query(
+            select_preferences_table, "rr",
+            message.guild.id
         )[0]
-        headers = [d[0] for d in self.bot.connection.cursor.description]
-        preferences = dict(zip(headers, prefs))
+        preferences = dict(zip(columns, prefs))
         # Parse message for raw mentions and flags for specified preferences
         flags = {}
         # Check for role mentions
@@ -481,10 +485,10 @@ class AntiGhostPing(commands.Cog):
         SELECT channel
         FROM preferences
         WHERE GuildID=?"""
-        prefs = self.bot.connection.execute_read_query(
-            select_preferences_table, message.guild.id
+        columns, prefs = self.bot.connection.execute_query(
+            select_preferences_table, "rr",
+            message.guild.id
         )[0]
-        columns = [d[0] for d in self.bot.connection.cursor.description]
         preferences = dict(zip(columns, prefs))
         # Get notification channel preferences from guild preferences
         if preferences is None:

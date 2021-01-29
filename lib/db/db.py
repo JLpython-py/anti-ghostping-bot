@@ -44,14 +44,21 @@ class DBConnection:
 """
         self.connection.close()
 
-    def execute_write_query(self, query, *args):
-        """ Pass the given query to the cursor and commit the connection
+    def execute_query(self, query, mode, *args):
+        """ Pass the given query to the cursor under the determined mode
 """
-        self.cursor.execute(query, tuple(args))
-        self.connection.commit()
-
-    def execute_read_query(self, query, *args):
-        """ Pass the given query to the cursor to read the database
-"""
-        self.cursor.execute(query, tuple(args))
-        return self.cursor.fetchall()
+        mode = mode.lower()
+        if mode not in ["r", "rr", "w"]:
+            return
+        if "w" in mode:
+            self.cursor.execute(query, tuple(args))
+            self.connection.commit()
+        elif "r" in mode:
+            self.cursor.execute(query, tuple(args))
+            if mode == "rr":
+                return [
+                    [d[0] for d in self.cursor.description],
+                    self.cursor.fetchall()
+                ]
+            else:
+                return self.cursor.fetchall()

@@ -1,8 +1,9 @@
 #! python3
-# db/__init__.py
+# configuration.py
 
 """
-Initialize SQLite database in data/db
+Configuration discord.exts.Cogs Cog
+- Allow guild owners to customize bot preferences for their guild
 ===============================================================================
 Copyright (c) 2021 Jacob Lee
 
@@ -25,17 +26,3 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ===============================================================================
 """
-
-from . import db
-
-
-PREFERENCES_QUERY = """CREATE TABLE IF NOT EXISTS preferences (
-    GuildID integer PRIMARY KEY,
-    everyone integer DEFAULT 1,
-    roles integer DEFAULT 1,
-    members integer DEFAULT 0,
-    channel integer DEFAULT 0
-);"""
-
-CONNECTION = db.DBConnection()
-CONNECTION.execute_query(PREFERENCES_QUERY, "w")

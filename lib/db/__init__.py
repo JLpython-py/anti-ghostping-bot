@@ -38,4 +38,4 @@ PREFERENCES_QUERY = """CREATE TABLE IF NOT EXISTS preferences (
 );"""
 
 CONNECTION = db.DBConnection()
-CONNECTION.execute_write_query(PREFERENCES_QUERY)
+CONNECTION.execute_query(PREFERENCES_QUERY, "w")

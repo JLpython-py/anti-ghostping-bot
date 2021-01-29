@@ -55,6 +55,7 @@ class TestRunBot(unittest.TestCase):
         try:
             loop.run_forever()
         except KeyboardInterrupt:
+            loop.close()
             bot.connection.close_connection()
 
 

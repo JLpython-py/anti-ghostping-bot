@@ -77,6 +77,7 @@ class BotRoot(commands.Bot):
         for path in cog_paths:
             cog = path[1][0]
             self.load_extension(f"lib.cogs.{cog}")
+            setattr(self, cog, False)
             logging.info("Cog Loaded: %s", cog)
         logging.info("Loaded all cogs in lib/cogs")
 

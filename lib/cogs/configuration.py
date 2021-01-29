@@ -78,7 +78,7 @@ class Configuration(commands.Cog):
             select_preferences_table, "rr",
             ctx.guild.id
         )
-        preferences = dict(zip(columns, prefs))
+        preferences = dict(zip(columns, prefs[0]))
         # Send preferences data to channel
         embed = discord.Embed(
             title=f"Preferences for {ctx.guild.name}",
@@ -174,22 +174,22 @@ class Configuration(commands.Cog):
 
         # Get current preference setting
         current_settings_query = """
-        SELECt *
+        SELECT *
         FROM preferences
         WHERE GuildID=?
         """
         columns, prefs = self.bot.connection.execute_query(
             current_settings_query, "rr",
             ctx.guild.id
-        )[0]
-        current = "ON" if dict(zip(columns, prefs))[setting] else "OFF"
+        )
+        current = "ON" if dict(zip(columns, prefs[0]))[setting] else "OFF"
         # Send an embed with reactions for guild owner to use
         embed = discord.Embed(
             gtitle=f"Confiure `{setting}`",
             color=0xff0000
         )
         fields = {
-            "Current Configuration": f"`everyone`={current}",
+            "Current Configuration": f"`{setting}`={current}",
             "Configure Setting": "ON/OFF"
         }
         for field in fields:
@@ -230,8 +230,8 @@ class Configuration(commands.Cog):
         columns, prefs = self.bot.connection.execute_query(
             current_settings, "rr",
             ctx.guild.id
-        )[0]
-        current = dict(zip(columns, prefs))["channel"]
+        )
+        current = dict(zip(columns, prefs[0]))["channel"]
         try:
             channel = discord.utils.get(
                 ctx.guild.channels, id=current

@@ -48,18 +48,19 @@ class DBConnection:
         """ Pass the given query to the cursor under the determined mode
 """
         mode = mode.lower()
-        if mode not in ["r", "rr", "w"]:
-            values = []
-        elif "w" in mode:
+        if mode == "w":
             self.cursor.execute(query, tuple(args))
             self.connection.commit()
-        elif "r" in mode:
+            values = []
+        elif mode == "r":
             self.cursor.execute(query, tuple(args))
-            if mode == "rr":
-                values = [
-                    [d[0] for d in self.cursor.description],
-                    self.cursor.fetchall()
-                ]
-            else:
-                values = [self.cursor.fetchall()]
+            values = self.cursor.fetchall()
+        elif mode == "rr":
+            self.cursor.execute(query, tuple(args))
+            values = [
+                [d[0] for d in self.cursor.description],
+                self.cursor.fetchall()
+            ]
+        else:
+            values = []
         return values

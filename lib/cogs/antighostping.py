@@ -67,8 +67,8 @@ class AntiGhostPing(commands.Cog):
         columns, prefs = self.bot.connection.execute_query(
             select_preferences_table, "rr",
             message.guild.id
-        )[0]
-        preferences = dict(zip(columns, prefs))
+        )
+        preferences = dict(zip(columns, prefs[0]))
         # Parse message for raw mentions and flags for specified preferences
         flags = {}
         # Check for role mentions
@@ -101,8 +101,8 @@ class AntiGhostPing(commands.Cog):
         columns, prefs = self.bot.connection.execute_query(
             select_preferences_table, "rr",
             message.guild.id
-        )[0]
-        preferences = dict(zip(columns, prefs))
+        )
+        preferences = dict(zip(columns, prefs[0]))
         # Get notification channel preferences from guild preferences
         if preferences is None:
             channel = message.channel

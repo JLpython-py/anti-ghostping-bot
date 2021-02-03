@@ -40,10 +40,14 @@ class Configuration(commands.Cog):
     def __init__(self, bot):
         self.directory = os.path.join("data", "Configuration")
         self.bot = bot
-        with open(os.path.join(
-                self.directory, "prompt.txt"
-        )) as file:
-            self.prompt_fields = json.load(file)
+        with open(
+                os.path.join(self.directory, "join_message.txt")
+        ) as file:
+            self.guild_join_fields = json.load(file)
+        with open(
+                os.path.join(self.directory, "remove_message.txt")
+        ) as file:
+            self.guild_remove_fields = json.load(file)
         with open(os.path.join(
                 self.directory, "configure.txt"
         )) as file:
@@ -51,18 +55,34 @@ class Configuration(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
-        """ Send configuration prompt when the bot is added to a guild
+        """ Send message to owner when the bot is added to a guild
 """
         # Insert default values
-        insert_new_guild_preferences = """
+        query = """
         INSERT INTO preferences (GuildID)
         VALUES (?)
         """
         self.bot.connection.execute_query(
-            insert_new_guild_preferences, "w",
+            query, "w",
             guild.id
         )
-        await self.initial_message(guild)
+        await self.join_message(guild)
+
+    @commands.Cog.listener()
+    async def on_guild_remove(self, guild):
+        """ Send message to owner when the bot is removed from a guild
+"""
+        # Delete guild table
+        query = """
+        DELETE
+        FROM preferences
+        WHERE GuildID=?
+        """.format(guild.id)
+        self.bot.connection.execute_query(
+            query, "w",
+            guild.id
+        )
+        await self.remove_message(guild)
 
     @commands.command(
         name="preferences", pass_context=True, aliases=["prefs", "p"])
@@ -362,7 +382,7 @@ class Configuration(commands.Cog):
             ctx.guild.id
         )
 
-    async def initial_message(self, guild):
+    async def join_message(self, guild):
         """ Send embed in direct message channel to guild owner
 """
         direct_message = await guild.owner.create_dm()
@@ -370,8 +390,24 @@ class Configuration(commands.Cog):
             title="Thank you for choosing the Anti-GhostPing bot!",
             color=0xff0000
         )
-        fields = self.prompt_fields
+        fields = self.guild_join_fields
         fields["Added to Guild"] = fields["Added to Guild"].format(
+            guild.name, guild.id
+        )
+        for field in fields:
+            embed.add_field(name=field, value=fields[field])
+        await direct_message.send(embed=embed)
+
+    async def remove_message(self, guild):
+        """ Send embed in direct message channel to guild owner
+"""
+        direct_message = await guild.owner.create_dm()
+        embed = discord.Embed(
+            title="We are sorry to see you go!",
+            color=0xff0000
+        )
+        fields = self.guild_remove_fields
+        fields["Removed from Guild"] = fields["Removed from Guild"].format(
             guild.name, guild.id
         )
         for field in fields:

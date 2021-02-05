@@ -144,7 +144,10 @@ class Configuration(commands.Cog):
         """ Send prompt with instructions for configuring bot preferences
 """
         def check(mess):
-            return mess.author.guild_permissions.administrator
+            return (
+                not mess.author.bot
+                and mess.author.guild_permissions.administrator
+            )
 
         # List the possible settings guild owner can configure
         embed = discord.Embed(
@@ -188,7 +191,8 @@ class Configuration(commands.Cog):
 
         def check(mess):
             return (
-                (mess.content.upper() in messages)
+                not mess.author.bot
+                and (mess.content.upper() in messages)
                 and mess.author.guild_permissions.administrator
             )
 
@@ -237,7 +241,8 @@ class Configuration(commands.Cog):
 """
         def check(mess):
             return (
-                (len(mess.channel_mentions) == 1)
+                not mess.author.bot
+                and (len(mess.channel_mentions) == 1)
                 and mess.author.guild_permissions.administrator
             )
 
@@ -292,7 +297,10 @@ class Configuration(commands.Cog):
         """ Confirm that user desires to revert bot preferences to defaults
 """
         def check(mess):
-            return mess.author.guild_permissions.administrator
+            return (
+                not mess.author.bot
+                and mess.author.guild_permissions.administrator
+            )
 
         desc = "Are you sure you want to revert bot preferences to defaults?"
         embed = discord.Embed(
